@@ -1,0 +1,410 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="dark">
+<title>Travian - Zero-loss calculator</title>
+<style>
+:root{--bg:#10151c;--panel:#19212c;--field:#101821;--line:#303d4d;--text:#edf2f7;--dim:#a8b6c7;--green:#9ee2be;--gold:#f2cf86;--red:#ffadad}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:14px/1.4 "Segoe UI",system-ui,sans-serif}
+main{max-width:1160px;margin:auto;padding:16px 20px}
+h1,h2,p{margin:0}
+h1{font-size:25px;line-height:1.2;letter-spacing:-.5px}
+h2{font-size:15px}
+a{color:var(--green)}
+input,select,button{font:inherit;touch-action:manipulation}
+input[type=number]{width:100%;min-width:0;border:1px solid #465468;border-radius:7px;background:var(--field);color:var(--text);padding:7px 10px;font-size:20px;font-weight:600}
+input[type=range]{width:100%;height:26px;margin:5px 0 0;accent-color:var(--green);cursor:pointer}
+[aria-invalid=true]{border-color:var(--red)!important}
+:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+label{display:flex;align-items:center;justify-content:space-between;gap:10px;font-weight:600;margin-bottom:6px}
+.header{display:flex;justify-content:space-between;align-items:center;gap:15px;margin-bottom:12px}
+.version{color:var(--dim);font-size:12px;white-space:nowrap}
+.controls{display:grid;grid-template-columns:1fr 1fr 1.4fr;align-items:end;gap:25px;padding:12px 18px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.control{min-width:0}
+.control-heading{display:flex;align-items:center;justify-content:space-between;gap:6px}
+.control-heading label{margin:0}
+.bonus-entry{display:flex;align-items:center;gap:4px;flex-shrink:0;color:var(--green)}
+input.bonus-number{width:64px;padding:3px 6px;font-size:18px;color:var(--green);font-variant-numeric:tabular-nums}
+.defense-heading{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:6px}
+.mode-switch{display:flex;gap:2px;padding:2px;background:var(--field);border:1px solid var(--line);border-radius:7px}
+.mode-switch button{border:0;border-radius:4px;padding:3px 8px;background:transparent;color:var(--dim);font-size:12px;cursor:pointer}
+.mode-switch button[aria-pressed=true]{background:var(--line);color:var(--text)}
+#building-defense{color:var(--green);font-size:12px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.defense-control fieldset{min-width:0;margin:0;padding:0;border:0}
+.building-fields{display:grid;grid-template-columns:minmax(85px,1.1fr) minmax(47px,.65fr) minmax(100px,1.25fr);align-items:end;gap:6px}
+.building-fields label{font-size:11px;margin-bottom:4px;white-space:nowrap}
+.building-fields input,.building-fields select{width:100%;min-width:0;height:34px;padding:4px 6px;border:1px solid #465468;border-radius:7px;background:var(--field);color:var(--text);font-size:16px}
+.building-fields select{font-size:14px}
+.status{min-height:20px;margin:8px 0 7px;color:var(--dim);font-size:12px}
+.error{color:var(--red);margin:10px 0}
+.tribe{padding:8px 14px;margin-bottom:10px;background:var(--panel);border:1px solid var(--line);border-radius:10px}
+.tribe h2{padding-left:9px;border-left:3px solid #e394a0;color:#ffbec4}
+.gauls h2{border-color:var(--green);color:var(--green)}
+.teutons h2{border-color:var(--gold);color:var(--gold)}
+table{width:100%;table-layout:fixed;border-collapse:collapse;margin-top:4px;text-align:center}
+th{height:28px;padding:3px 5px;font-size:clamp(10px,1.2vw,13px);line-height:1.2;font-weight:500;color:var(--dim);overflow-wrap:anywhere}
+td{padding:0 5px}
+.value{container-type:inline-size}
+.minimum{display:block;font-size:min(29px,calc(155cqw / var(--characters,1)));line-height:1.25;font-weight:750;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--green)}
+.minimum:not([data-count]){color:var(--dim)}
+.minimum[data-limit]{color:var(--gold)}
+footer{font-size:11px;color:var(--dim);margin-top:12px}
+[hidden]{display:none!important}
+@media(max-width:700px){
+  main{padding:14px 12px}.controls{grid-template-columns:1fr 1fr;gap:12px 20px;padding:12px 14px}
+  .defense-control{grid-column:1/-1}
+}
+@media(max-width:480px){
+  h1{font-size:21px}.tribe{padding:9px 7px}.tribe h2{font-size:14px}
+  th{height:38px;padding:3px}td{padding:0 3px}.minimum{font-size:min(27px,calc(155cqw / var(--characters,1)))}
+  .control-heading label{font-size:13px}input.bonus-number{width:56px}
+}
+@media(max-width:360px){
+  .control-heading{display:block}.control-heading label{margin-bottom:5px}
+}
+</style>
+</head>
+<body>
+<main>
+  <header class="header">
+    <h1>Zero-loss raids</h1>
+    <span class="version">Travian T4.6</span>
+  </header>
+
+  <noscript><p class="error">Enable JavaScript to use this offline calculator.</p></noscript>
+  <form id="calculator" novalidate>
+    <section class="controls" aria-label="Raid settings">
+      <div class="control">
+        <div class="control-heading">
+          <label for="alliance-slider">Metallurgy</label>
+          <div class="bonus-entry">
+            <input class="bonus-number" id="alliance" type="number" min="0" max="10" step="2" value="0" inputmode="numeric" aria-label="Metallurgy percent: 0, 2, 4, 6, 8 or 10" required>
+            <span aria-hidden="true">%</span>
+          </div>
+        </div>
+        <input id="alliance-slider" type="range" min="0" max="10" step="2" value="0" aria-valuetext="0 percent" title="Alliance attack bonus">
+      </div>
+      <div class="control">
+        <div class="control-heading">
+          <label for="armory-slider">Armory</label>
+          <input class="bonus-number" id="armory" type="number" min="0" max="20" step="1" value="0" inputmode="numeric" aria-label="Armory level for all units" required>
+        </div>
+        <input id="armory-slider" type="range" min="0" max="20" step="1" value="0" aria-valuetext="Level 0 for all units" title="Smithy upgrade level for all units, not the building level">
+      </div>
+      <div class="control defense-control">
+        <div class="defense-heading">
+          <div class="mode-switch" role="group" aria-label="Village defense input">
+            <button id="direct-mode" type="button" aria-pressed="true" aria-controls="direct-fields">Defense</button>
+            <button id="buildings-mode" type="button" aria-pressed="false" aria-controls="buildings-fields">Buildings</button>
+          </div>
+          <output id="building-defense" for="defender-tribe wall residence" aria-label="Calculated village defense" hidden></output>
+        </div>
+        <fieldset id="direct-fields" aria-label="Direct village defense">
+          <input id="defense" type="number" min="0" max="1000000000000" step="any" value="142" inputmode="decimal" aria-label="Village defense" title="Final defender combat strength; no extra base defense is added" required>
+        </fieldset>
+        <fieldset id="buildings-fields" class="building-fields" aria-label="Defending village buildings" hidden disabled>
+          <div>
+            <label for="defender-tribe">Defender tribe</label>
+            <select id="defender-tribe" required>
+              <option value="romans">Roman</option>
+              <option value="gauls">Gaul</option>
+              <option value="teutons">Teuton</option>
+            </select>
+          </div>
+          <div>
+            <label for="wall">Wall</label>
+            <input id="wall" type="number" min="0" max="20" step="1" value="0" inputmode="numeric" aria-label="Wall level" required>
+          </div>
+          <div>
+            <label for="residence" title="Residence and Palace give the same defense at the same level">Res. / Palace</label>
+            <input id="residence" type="number" min="0" max="20" step="1" value="0" inputmode="numeric" aria-label="Residence or Palace level" title="Residence and Palace give the same defense. Use 0 if neither is built." required>
+          </div>
+        </fieldset>
+      </div>
+    </section>
+    <p id="error" class="error" role="alert" hidden></p>
+  </form>
+  <p id="status" class="status" role="status" aria-live="polite">Minimum troops for 0 deaths.</p>
+  <div id="tribes"></div>
+  <footer>Each number is a separate raid against an empty village, without a hero or traps. <a href="http://travian.kirilloid.ru/troops.php" target="_blank" rel="noopener noreferrer">Kirilloid data</a>.</footer>
+</main>
+<script>
+'use strict';
+(() => {
+  const MAX_TROOPS = 1_000_000_000_000;
+  const TRIBES = [
+    { id: 'romans', name: 'Romans', crest: 'R', wall: { points:10, factor:1.03 } },
+    { id: 'gauls', name: 'Gauls', crest: 'G', wall: { points:8, factor:1.025 } },
+    { id: 'teutons', name: 'Teutons', crest: 'T', wall: { points:6, factor:1.02 } }
+  ];
+  const UNITS = [
+    { id:'u1', tribe:'romans', name:'Legionnaire', base:40, upkeep:1, type:'infantry', kind:'troop' },
+    { id:'u2', tribe:'romans', name:'Praetorian', base:30, upkeep:1, type:'infantry', kind:'troop' },
+    { id:'u3', tribe:'romans', name:'Imperian', base:70, upkeep:1, type:'infantry', kind:'troop' },
+    { id:'u4', tribe:'romans', name:'Equites Legati', base:0, upkeep:2, type:'cavalry', kind:'scout' },
+    { id:'u5', tribe:'romans', name:'Equites Imperatoris', base:120, upkeep:3, type:'cavalry', kind:'troop' },
+    { id:'u6', tribe:'romans', name:'Equites Caesaris', base:180, upkeep:4, type:'cavalry', kind:'troop' },
+    { id:'u7', tribe:'romans', name:'Battering Ram', base:60, upkeep:3, type:'infantry', kind:'siege' },
+    { id:'u8', tribe:'romans', name:'Fire Catapult', base:75, upkeep:6, type:'infantry', kind:'siege' },
+    { id:'u9', tribe:'romans', name:'Senator', base:50, upkeep:5, type:'infantry', kind:'chief' },
+    { id:'u10', tribe:'romans', name:'Settler', base:0, upkeep:1, type:'infantry', kind:'settler' },
+    { id:'u21', tribe:'gauls', name:'Phalanx', base:15, upkeep:1, type:'infantry', kind:'troop' },
+    { id:'u22', tribe:'gauls', name:'Swordsman', base:65, upkeep:1, type:'infantry', kind:'troop' },
+    { id:'u23', tribe:'gauls', name:'Pathfinder', base:0, upkeep:2, type:'cavalry', kind:'scout' },
+    { id:'u24', tribe:'gauls', name:'Theutates Thunder', base:100, upkeep:2, type:'cavalry', kind:'troop' },
+    { id:'u25', tribe:'gauls', name:'Druidrider', base:45, upkeep:2, type:'cavalry', kind:'troop' },
+    { id:'u26', tribe:'gauls', name:'Haeduan', base:140, upkeep:3, type:'cavalry', kind:'troop' },
+    { id:'u27', tribe:'gauls', name:'Ram', base:50, upkeep:3, type:'infantry', kind:'siege' },
+    { id:'u28', tribe:'gauls', name:'Trebuchet', base:70, upkeep:6, type:'infantry', kind:'siege' },
+    { id:'u29', tribe:'gauls', name:'Chieftain', base:40, upkeep:4, type:'infantry', kind:'chief' },
+    { id:'u30', tribe:'gauls', name:'Settler', base:0, upkeep:1, type:'infantry', kind:'settler' },
+    { id:'u11', tribe:'teutons', name:'Clubswinger (Maceman)', base:40, upkeep:1, type:'infantry', kind:'troop' },
+    { id:'u12', tribe:'teutons', name:'Spearman', base:10, upkeep:1, type:'infantry', kind:'troop' },
+    { id:'u13', tribe:'teutons', name:'Axeman', base:60, upkeep:1, type:'infantry', kind:'troop' },
+    { id:'u14', tribe:'teutons', name:'Scout', base:0, upkeep:1, type:'infantry', kind:'scout' },
+    { id:'u15', tribe:'teutons', name:'Paladin', base:55, upkeep:2, type:'cavalry', kind:'troop' },
+    { id:'u16', tribe:'teutons', name:'Teutonic Knight', base:150, upkeep:3, type:'cavalry', kind:'troop' },
+    { id:'u17', tribe:'teutons', name:'Ram', base:65, upkeep:3, type:'infantry', kind:'siege' },
+    { id:'u18', tribe:'teutons', name:'Catapult', base:50, upkeep:6, type:'infantry', kind:'siege' },
+    { id:'u19', tribe:'teutons', name:'Chief', base:40, upkeep:4, type:'infantry', kind:'chief' },
+    { id:'u20', tribe:'teutons', name:'Settler', base:10, upkeep:1, type:'infantry', kind:'settler' }
+  ];
+
+  const RAID_UNITS = UNITS.filter(unit => unit.kind === 'troop');
+  const canUpgrade = unit => unit.kind !== 'chief' && unit.kind !== 'settler';
+  function attackPerUnit(unit, level, alliance) {
+    if (unit.base === 0) return 0;
+    const upgrade = canUpgrade(unit) ? level : 0;
+    const upkeep = unit.upkeep / 1.007;
+    const strength = unit.base + (unit.base + 300 * upkeep / 7) * (1.007 ** upgrade - 1) + upkeep * 0.0021;
+    return strength * (1 + alliance / 100);
+  }
+
+  function immensity(totalUnits) {
+    const raw = Math.max(1.2578, Math.min(1.5, 3.7184 - 2 * totalUnits ** 0.015));
+    return 0.0002 * Math.round(raw / 0.0002);
+  }
+
+  // Equivalent to rounding survivors half-up, without subtracting nearly equal large numbers.
+  const roundedDeaths = rawLoss => Math.max(0, Math.ceil(rawLoss - 0.5));
+
+  function battle(count, attack, defense, defenders, mode, exponent = immensity(count + defenders)) {
+    const strength = count * attack;
+    const x = defense === 0 ? Infinity : (strength / defense) ** exponent;
+    let fraction = mode === 'raid' ? 1 / (1 + x) : Math.min(1, 1 / x);
+    if (attack === 0 || (count === 1 && strength < 84.5)) fraction = 1;
+    const rawLoss = count * fraction;
+    return { strength, exponent, fraction, rawLoss, losses: roundedDeaths(rawLoss) };
+  }
+
+  function exponentBands(defenders, limit = MAX_TROOPS) {
+    const bands = [];
+    let start = 3;
+    while (start <= limit) {
+      const exponent = immensity(start + defenders);
+      let low = start, high = limit;
+      while (low < high) {
+        const mid = low + Math.ceil((high - low) / 2);
+        if (immensity(mid + defenders) === exponent) low = mid;
+        else high = mid - 1;
+      }
+      bands.push({ start, end: low, exponent });
+      start = low + 1;
+    }
+    return bands;
+  }
+
+  function minimumTroops(attack, defense, defenders, mode, bands, limit = MAX_TROOPS) {
+    if (attack <= 0) return null;
+    for (let count = 1; count <= Math.min(2, limit); count++) {
+      if (battle(count, attack, defense, defenders, mode).losses === 0) return count;
+    }
+    // For count >= 3, zero-loss capacity increases within a fixed-exponent band.
+    // Exponent drops can reverse it, so a single binary search would skip earlier minima.
+    for (const band of bands || exponentBands(defenders, limit)) {
+      if (battle(band.end, attack, defense, defenders, mode, band.exponent).losses !== 0) continue;
+      let low = band.start, high = band.end;
+      while (low < high) {
+        const mid = low + Math.floor((high - low) / 2);
+        if (battle(mid, attack, defense, defenders, mode, band.exponent).losses === 0) high = mid;
+        else low = mid + 1;
+      }
+      return low;
+    }
+    return null;
+  }
+
+  function defenseFor(unit, settings) {
+    const defense = settings.splitDefense && unit.type === 'cavalry' ? settings.cavalryDefense : settings.defense;
+    return defense + (settings.roundingBuffer ? 0.5 : 0);
+  }
+
+  function buildingDefense(tribe, wallLevel, residenceLevel) {
+    // Kirilloid's T4 wall multiplier is rounded to 0.001 before applying it.
+    const wallBonus = Math.round(tribe.wall.factor ** wallLevel / 0.001) * 0.001;
+    return (10 + 2 * residenceLevel ** 2 + tribe.wall.points * wallLevel) * wallBonus;
+  }
+
+  globalThis.TravianZeroLoss = { UNITS, RAID_UNITS, TRIBES, MAX_TROOPS, canUpgrade, attackPerUnit, immensity, roundedDeaths, battle, exponentBands, minimumTroops, defenseFor, buildingDefense };
+  if (typeof document === 'undefined') return;
+
+  const $ = id => document.getElementById(id);
+  const form = $('calculator');
+  const fmt = (value, digits = 0) => value.toLocaleString('en-US', { maximumFractionDigits: digits });
+  let defenseMode = 'direct';
+  let bands;
+
+  $('tribes').innerHTML = TRIBES.map(tribe => `
+    <section class="tribe ${tribe.id}" aria-labelledby="heading-${tribe.id}">
+      <h2 id="heading-${tribe.id}">${tribe.name}</h2>
+      <table aria-labelledby="heading-${tribe.id}">
+        <thead><tr>${RAID_UNITS.filter(unit => unit.tribe === tribe.id).map(unit =>
+          `<th scope="col">${unit.name.replace(' (Maceman)', '')}</th>`).join('')}</tr></thead>
+        <tbody><tr>${RAID_UNITS.filter(unit => unit.tribe === tribe.id).map(unit => `
+          <td data-unit="${unit.id}"><div class="value"><span id="minimum-${unit.id}" class="minimum" aria-label="Not calculated">&mdash;</span></div></td>
+        `).join('')}</tr></tbody>
+      </table>
+    </section>`).join('');
+
+  class InputError extends Error {
+    constructor(message, element) {
+      super(message);
+      this.element = element;
+    }
+  }
+
+  function numberInput(id, label, min, max, integer = false) {
+    const element = $(id);
+    const value = Number(element.value);
+    if (!element.value.trim() || !Number.isFinite(value) || value < min || value > max || (integer && !Number.isInteger(value))) {
+      throw new InputError(`${label}: enter ${integer ? 'a whole number' : 'a number'} from ${fmt(min)} to ${fmt(max)}.`, element);
+    }
+    return value;
+  }
+
+  function clearResults(message = 'Enter valid values to see minimums.') {
+    document.querySelectorAll('.minimum').forEach(element => {
+      element.textContent = '\u2014';
+      element.removeAttribute('title');
+      element.setAttribute('aria-label', 'Not calculated');
+      element.style.removeProperty('--characters');
+      delete element.dataset.count;
+      delete element.dataset.limit;
+    });
+    $('building-defense').textContent = '\u2014';
+    $('building-defense').removeAttribute('title');
+    $('status').textContent = message;
+    $('error').hidden = true;
+  }
+
+  function showInputError(error) {
+    if (!(error instanceof InputError)) throw error;
+    clearResults('Check the highlighted value.');
+    $('error').textContent = error.message;
+    $('error').hidden = false;
+    error.element.setAttribute('aria-invalid', 'true');
+  }
+
+  function readSettings() {
+    const alliance = numberInput('alliance', 'Metallurgy', 0, 10);
+    if (alliance % 2 !== 0) {
+      throw new InputError('Metallurgy must be 0, 2, 4, 6, 8 or 10%.', $('alliance'));
+    }
+    let defense;
+    if (defenseMode === 'buildings') {
+      const tribe = TRIBES.find(tribe => tribe.id === $('defender-tribe').value);
+      if (!tribe) throw new InputError('Choose the defending tribe: Roman, Gaul or Teuton.', $('defender-tribe'));
+      defense = buildingDefense(tribe,
+        numberInput('wall', 'Wall level', 0, 20, true),
+        numberInput('residence', 'Residence / Palace level', 0, 20, true));
+    } else {
+      defense = numberInput('defense', 'Village defense', 0, MAX_TROOPS);
+    }
+    return {
+      defense,
+      alliance,
+      level: numberInput('armory', 'Armory level', 0, 20, true)
+    };
+  }
+
+  function calculate() {
+    let settings;
+    form.querySelectorAll('[aria-invalid]').forEach(element => element.removeAttribute('aria-invalid'));
+    try {
+      settings = readSettings();
+    } catch (error) {
+      showInputError(error);
+      return;
+    }
+    bands ||= exponentBands(0);
+    const results = RAID_UNITS.map(unit => {
+      const attack = attackPerUnit(unit, settings.level, settings.alliance);
+      const count = minimumTroops(attack, settings.defense, 0, 'raid', bands);
+      return { unit, attack, count };
+    });
+    results.forEach(({ unit, attack, count }) => {
+      const cell = $(`minimum-${unit.id}`);
+      delete cell.dataset.count;
+      delete cell.dataset.limit;
+      if (count === null) {
+        cell.textContent = '>1T';
+        cell.dataset.limit = 'true';
+        cell.title = 'More than 1 trillion troops needed. Search limit reached.';
+      } else {
+        cell.textContent = fmt(count);
+        cell.dataset.count = count;
+        const previous = count > 1 ? battle(count - 1, attack, settings.defense, 0, 'raid') : null;
+        cell.title = `${fmt(count)} ${unit.name}: 0 deaths. Attack/unit: ${fmt(attack, 4)}. ` +
+          (previous ? `${fmt(count - 1)} troops would lose ${fmt(previous.losses)}.` : 'Smallest possible army.');
+      }
+      cell.style.setProperty('--characters', cell.textContent.length);
+      cell.setAttribute('aria-label', cell.title);
+    });
+    $('status').textContent = 'Minimum troops for 0 deaths.' +
+      (results.some(result => result.count === null) ? ' >1T means more than 1 trillion.' : '');
+    if (defenseMode === 'buildings') {
+      $('building-defense').textContent = `= ${fmt(settings.defense, 3)}`;
+      $('building-defense').title = `Village defense: ${settings.defense}. Includes base defense, wall and Residence / Palace.`;
+    }
+    $('error').hidden = true;
+  }
+
+  function setDefenseMode(mode) {
+    defenseMode = mode;
+    for (const name of ['direct', 'buildings']) {
+      const active = name === mode;
+      $(`${name}-mode`).setAttribute('aria-pressed', String(active));
+      $(`${name}-fields`).hidden = !active;
+      $(`${name}-fields`).disabled = !active;
+    }
+    $('building-defense').hidden = mode !== 'buildings';
+    calculate();
+  }
+
+  function changeSettings(event) {
+    for (const [sliderId, numberId] of [['alliance-slider', 'alliance'], ['armory-slider', 'armory']]) {
+      const slider = $(sliderId), number = $(numberId);
+      if (event.target === slider) number.value = slider.value;
+      else if (event.target === number && number.value.trim() && number.validity.valid) slider.value = number.value;
+    }
+    $('alliance-slider').setAttribute('aria-valuetext', `${$('alliance-slider').value} percent`);
+    $('armory-slider').setAttribute('aria-valuetext', `Level ${$('armory-slider').value} for all units`);
+    calculate();
+  }
+
+  form.addEventListener('submit', event => {
+    event.preventDefault();
+    calculate();
+  });
+  form.addEventListener('input', changeSettings);
+  form.addEventListener('change', changeSettings);
+  $('direct-mode').addEventListener('click', () => setDefenseMode('direct'));
+  $('buildings-mode').addEventListener('click', () => setDefenseMode('buildings'));
+  setDefenseMode('direct');
+})();
+</script>
+</body>
+</html>
