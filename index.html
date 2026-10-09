@@ -195,7 +195,8 @@ footer{font-size:11px;color:var(--dim);margin-top:12px}
     const strength = count * attack;
     const x = defense === 0 ? Infinity : (strength / defense) ** exponent;
     let fraction = mode === 'raid' ? 1 / (1 + x) : Math.min(1, 1 / x);
-    if (attack === 0 || (count === 1 && strength < 84.5)) fraction = 1;
+    // Only the lone-unit 83-point gate uses rounded attack, not the combat ratio.
+    if (attack === 0 || (count === 1 && Math.round(strength) < 83)) fraction = 1;
     const rawLoss = count * fraction;
     return { strength, exponent, fraction, rawLoss, losses: roundedDeaths(rawLoss) };
   }
